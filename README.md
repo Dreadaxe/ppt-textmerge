@@ -1,25 +1,58 @@
-# ParaMerge for PowerPoint
+# PPT TextMerge
 
-ParaMerge is a lightweight PowerPoint add-in that merges fragmented text boxes—especially those created by PDF → PowerPoint conversion—into editable paragraphs.
+**PPT TextMerge** is a lightweight PowerPoint add-in for repairing fragmented text boxes, especially after **PDF → PowerPoint** conversion.
 
-## What it does
+Repository: `Dreadaxe/ppt-textmerge`.
 
-- **Merge paragraphs**: reconstructs multiple logical paragraphs while preserving layout.
-- **Merge into one text box**: combines the full selection into a single text box.
-- **Options**: controls paragraph-gap detection, dehyphenation, column handling, and style preservation.
+## Core workflow
 
-## PowerPoint ribbon
+Select text boxes on a slide and use the PowerPoint ribbon:
 
-**Merge paragraphs · Merge 1 box · Options**
+- **Fusion paragraphes** — detects columns, visual lines, titles/body transitions and reconstructs logical paragraphs.
+- **Fusion 1 zone** — joins the full selection into one text box.
+- **Découper** — splits one text box into explicit paragraphs or explicit line breaks.
+- **Options** — opens the lightweight settings/diagnostic panel.
 
-## Hosted add-in
+## v0.5 highlights
 
-Production URL:
+### Smart same-line fragment repair
+Adjacent boxes on the same baseline can be reassembled before paragraph reconstruction. Very small horizontal gaps are treated as OCR/PDF fragmentation inside a word; larger gaps become spaces.
 
-https://dreadaxe.github.io/paramerge
+### Column-aware paragraph reconstruction
+Text boxes are first grouped into visual lines, then columns, then paragraphs. This reduces accidental cross-column merges.
 
-The add-in is static: no backend, no Node/npm/Vite required in production.
+### Reference-box merge
+For **Fusion 1 zone**, choose either:
+- the union of all selected boxes; or
+- the first selected box as the reference geometry.
 
-## Repository name
+### Frame preservation
+PPT TextMerge can preserve:
+- text margins;
+- vertical anchoring;
+- word wrap;
+- auto-fit behavior;
+- dominant font, size, bold, italic and color.
 
-The short project name is **ParaMerge**. The expanded product name used in documentation is **ParaMerge for PowerPoint** so the purpose is immediately clear.
+### Split text
+One multiline text box can be split on explicit paragraph breaks or explicit line breaks.
+
+### Selection diagnostic
+The Options pane can report:
+`text boxes → visual lines → detected paragraphs · columns · same-line fragments`
+without modifying the slide.
+
+### Keyboard shortcuts
+On supported PowerPoint versions:
+- `Ctrl+Alt+M` — smart paragraph merge
+- `Ctrl+Alt+J` — merge into one box
+- `Ctrl+Alt+Shift+P` — split into paragraphs
+- `Ctrl+Alt+Shift+L` — split into lines
+
+## Production hosting
+
+The add-in is static and hosted at:
+
+https://dreadaxe.github.io/ppt-textmerge
+
+No Node/npm/Vite runtime is required for end users.
