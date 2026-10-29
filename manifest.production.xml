@@ -5,7 +5,7 @@
            xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
            xsi:type="TaskPaneApp">
   <Id>B1CC1490-1CC9-475F-BB22-6615D7B13A52</Id>
-  <Version>1.0.5.2</Version>
+  <Version>1.0.5.4</Version>
   <ProviderName>PPT TextMerge</ProviderName>
   <DefaultLocale>fr-FR</DefaultLocale>
   <DisplayName DefaultValue="PPT TextMerge"/>
@@ -30,7 +30,7 @@
   </Requirements>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://dreadaxe.github.io/ppt-textmerge/taskpane.html?v=1052"/>
+    <SourceLocation DefaultValue="https://dreadaxe.github.io/ppt-textmerge/taskpane.html?v=1054"/>
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
@@ -131,7 +131,7 @@
       </bt:Images>
 
       <bt:Urls>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/taskpane.html?v=1052"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/taskpane.html?v=1054"/>
       </bt:Urls>
 
       <bt:ShortStrings>
