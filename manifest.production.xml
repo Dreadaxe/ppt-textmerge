@@ -5,7 +5,7 @@
            xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
            xsi:type="TaskPaneApp">
   <Id>B1CC1490-1CC9-475F-BB22-6615D7B13A52</Id>
-  <Version>1.0.5.4</Version>
+  <Version>1.0.6.0</Version>
   <ProviderName>PPT TextMerge</ProviderName>
   <DefaultLocale>fr-FR</DefaultLocale>
   <DisplayName DefaultValue="PPT TextMerge"/>
@@ -30,7 +30,7 @@
   </Requirements>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://dreadaxe.github.io/ppt-textmerge/taskpane.html?v=1054"/>
+    <SourceLocation DefaultValue="https://dreadaxe.github.io/ppt-textmerge/taskpane.html?v=1060"/>
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
@@ -95,6 +95,22 @@
                   </Action>
                 </Control>
 
+                <Control xsi:type="Button" id="PPTTextMerge.MergeColumns">
+                  <Label resid="MergeColumns.Label"/>
+                  <Supertip>
+                    <Title resid="MergeColumns.Label"/>
+                    <Description resid="MergeColumns.Description"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Paragraphs.16"/>
+                    <bt:Image size="32" resid="Paragraphs.32"/>
+                    <bt:Image size="80" resid="Paragraphs.80"/>
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>mergeColumnsCommand</FunctionName>
+                  </Action>
+                </Control>
+
                 <Control xsi:type="Button" id="PPTTextMerge.Settings">
                   <Label resid="Settings.Label"/>
                   <Supertip>
@@ -131,19 +147,21 @@
       </bt:Images>
 
       <bt:Urls>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/taskpane.html?v=1054"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/taskpane.html?v=1060"/>
       </bt:Urls>
 
       <bt:ShortStrings>
         <bt:String id="Group.Label" DefaultValue="PPT TextMerge"/>
         <bt:String id="MergeParagraphs.Label" DefaultValue="Fusion paragraphes"/>
         <bt:String id="MergeSingle.Label" DefaultValue="Fusion 1 zone"/>
+        <bt:String id="MergeColumns.Label" DefaultValue="Fusion colonnes"/>
         <bt:String id="Settings.Label" DefaultValue="Options"/>
       </bt:ShortStrings>
 
       <bt:LongStrings>
         <bt:String id="MergeParagraphs.Description" DefaultValue="Fusionne les lignes sélectionnées en plusieurs paragraphes en conservant leur position."/>
-        <bt:String id="MergeSingle.Description" DefaultValue="Fusionne toute la sélection en une seule zone de texte."/>
+        <bt:String id="MergeSingle.Description" DefaultValue="Fusionne toute la sélection dans une zone existante conservée comme cible."/>
+        <bt:String id="MergeColumns.Description" DefaultValue="Détecte les colonnes et fusionne chacune dans une zone distincte."/>
         <bt:String id="Settings.Description" DefaultValue="Ouvre les réglages de PPT TextMerge."/>
       </bt:LongStrings>
     </Resources>
