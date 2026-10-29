@@ -5,7 +5,7 @@
            xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
            xsi:type="TaskPaneApp">
   <Id>B1CC1490-1CC9-475F-BB22-6615D7B13A52</Id>
-  <Version>1.0.4.2</Version>
+  <Version>1.0.4.3</Version>
   <ProviderName>PPT TextMerge</ProviderName>
   <DefaultLocale>fr-FR</DefaultLocale>
   <DisplayName DefaultValue="PPT TextMerge"/>
@@ -41,7 +41,6 @@
       <bt:Sets DefaultMinVersion="1.1">
         <bt:Set Name="AddinCommands" MinVersion="1.1"/>
         <bt:Set Name="PowerPointApi" MinVersion="1.5"/>
-        <bt:Set Name="SharedRuntime" MinVersion="1.1"/>
       </bt:Sets>
     </Requirements>
 
@@ -108,6 +107,7 @@
                     <bt:Image size="80" resid="Settings.80"/>
                   </Icon>
                   <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>PPTTextMerge.OptionsPane</TaskpaneId>
                     <SourceLocation resid="Taskpane.Url"/>
                   </Action>
                 </Control>
