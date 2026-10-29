@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ParaMerge — Options</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>ParaMerge</h1>
+        <p>Options des deux commandes de fusion du ruban.</p>
+      </div>
+      <span id="apiBadge" class="badge">PowerPoint</span>
+    </header>
+
+    <section class="card">
+      <h2>Fusion en paragraphes</h2>
+      <label>
+        Séparation verticale
+        <div class="rangeRow">
+          <input id="paragraphGap" type="range" min="120" max="240" step="5" value="155">
+          <strong id="paragraphGapValue">155 %</strong>
+        </div>
+      </label>
+      <label class="check">
+        <input id="splitOnStyle" type="checkbox" checked>
+        Séparer automatiquement titre et corps
+      </label>
+      <label class="check">
+        <input id="respectColumns" type="checkbox" checked>
+        Respecter les colonnes détectées
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Fusion tout en 1 zone</h2>
+      <label>
+        Disposition
+        <select id="layoutMode">
+          <option value="preserve">Conserver les espacements</option>
+          <option value="compact">Recomposer en texte compact</option>
+        </select>
+      </label>
+      <label>
+        Espacement maximal conservé
+        <div class="rangeRow">
+          <input id="maxBlankLines" type="range" min="2" max="16" step="1" value="8">
+          <strong id="maxBlankLinesValue">8 lignes</strong>
+        </div>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Commun</h2>
+      <label class="check">
+        <input id="dehyphenate" type="checkbox" checked>
+        Supprimer les césures évidentes en fin de ligne
+      </label>
+      <label class="check">
+        <input id="preserveStyles" type="checkbox" checked>
+        Conserver le style dominant de chaque ligne
+      </label>
+    </section>
+
+    <section class="card info">
+      <strong>Utilisation</strong>
+      <p>Sélectionne les zones de texte dans PowerPoint, puis utilise directement les deux boutons ParaMerge du ruban. Ce panneau n’est nécessaire que pour modifier les options.</p>
+    </section>
+
+    <div id="status" class="status">Prêt.</div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
