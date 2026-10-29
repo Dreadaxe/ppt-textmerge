@@ -48,8 +48,23 @@
     } catch {}
   }
 
+  const VALID_ALIGNMENTS = new Set([
+    "Left", "Center", "Right", "Justify",
+    "JustifyLow", "Distributed", "ThaiDistributed"
+  ]);
+
   function normalizeText(s) {
     return String(s || "").replace(/\s+/g, " ").trim();
+  }
+
+  function describeOfficeError(error, stage = "") {
+    const parts = [];
+    if (stage) parts.push(stage);
+    if (error && error.code) parts.push(String(error.code));
+    if (error && error.message && error.message !== error.code) parts.push(String(error.message));
+    const loc = error?.debugInfo?.errorLocation;
+    if (loc) parts.push("à " + loc);
+    return parts.join(" — ") || String(error);
   }
 
   function median(values) {
@@ -211,11 +226,17 @@
   }
 
   function applyFont(range, font) {
-    if (font.name) range.font.name = font.name;
-    if (font.size != null) range.font.size = font.size;
-    if (font.bold != null) range.font.bold = font.bold;
-    if (font.italic != null) range.font.italic = font.italic;
-    if (font.color) range.font.color = font.color;
+    if (typeof font.name === "string" && font.name && font.name !== "Mixed") {
+      range.font.name = font.name;
+    }
+    if (typeof font.size === "number" && Number.isFinite(font.size) && font.size > 0) {
+      range.font.size = font.size;
+    }
+    if (typeof font.bold === "boolean") range.font.bold = font.bold;
+    if (typeof font.italic === "boolean") range.font.italic = font.italic;
+    if (typeof font.color === "string" && font.color && font.color !== "Mixed") {
+      range.font.color = font.color;
+    }
   }
 
   async function mergeGroup(slideId, ids, mode, selectResult = false) {
@@ -275,10 +296,8 @@
         applyFont(merged.textFrame.textRange, first.font);
       }
 
-      if (first.align) {
-        try {
-          merged.textFrame.textRange.paragraphFormat.horizontalAlignment = first.align;
-        } catch {}
+      if (first.align && VALID_ALIGNMENTS.has(first.align)) {
+        merged.textFrame.textRange.paragraphFormat.horizontalAlignment = first.align;
       }
 
       if (mode === "paragraph" && settings.preserveParagraphTop) {
@@ -291,14 +310,27 @@
       }
 
       merged.load("id");
-      await context.sync();
+      try {
+        await context.sync();
+      } catch (error) {
+        throw new Error(describeOfficeError(error, "Création / mise en forme de la zone fusionnée"));
+      }
 
       source.forEach(s => s.delete());
-      await context.sync();
+      try {
+        await context.sync();
+      } catch (error) {
+        throw new Error(describeOfficeError(error, "Suppression des anciennes zones"));
+      }
 
       if (selectResult) {
         slide.setSelectedShapes([merged.id]);
-        await context.sync();
+        try {
+          await context.sync();
+        } catch (error) {
+          // La fusion elle-même est réussie : un échec de resélection ne doit pas l'annuler.
+          console.warn(describeOfficeError(error, "Resélection"));
+        }
       }
 
       return merged.id;
@@ -398,11 +430,15 @@
       newIds.push(id);
     }
 
-    await PowerPoint.run(async context => {
-      const slide = context.presentation.slides.getItem(data.slideId);
-      slide.setSelectedShapes([...untouched, ...newIds]);
-      await context.sync();
-    });
+    try {
+      await PowerPoint.run(async context => {
+        const slide = context.presentation.slides.getItem(data.slideId);
+        slide.setSelectedShapes([...untouched, ...newIds]);
+        await context.sync();
+      });
+    } catch (error) {
+      console.warn(describeOfficeError(error, "Resélection finale"));
+    }
 
     setStatus(
       `${mergeable.length} paragraphe(s) fusionné(s), ${untouched.length} bloc(s) laissé(s) intact(s).`,
@@ -414,7 +450,11 @@
     try {
       await fn();
     } catch (e) {
-      await showError(e instanceof Error ? e.message : String(e));
+      await showError(
+        e instanceof Error && !(e && e.code)
+          ? e.message
+          : describeOfficeError(e)
+      );
     } finally {
       try { event.completed(); } catch {}
     }
