@@ -9,7 +9,8 @@
     layoutMode: "preserve",
     maxBlankLines: 8,
     dehyphenate: true,
-    preserveStyles: true
+    preserveStyles: true,
+    preserveParagraphTop: true
   };
 
   function supports(set, version) {
@@ -244,7 +245,7 @@
         height: Math.max(4, bottom - top)
       });
 
-      merged.name = `ParaMerge ${mode}`;
+      merged.name = `PPT TextMerge ${mode}`;
       merged.fill.clear();
 
       const first = sorted[0];
@@ -253,6 +254,14 @@
       if (first.frame.topMargin != null) merged.textFrame.topMargin = first.frame.topMargin;
       if (first.frame.bottomMargin != null) merged.textFrame.bottomMargin = first.frame.bottomMargin;
       merged.textFrame.wordWrap = true;
+
+      // PDF-converted line boxes are often vertically centered or auto-sized.
+      // Reusing that behavior in a taller paragraph box can move the paragraph.
+      // For paragraph fusion, keep the original top coordinate as an invariant.
+      if (mode === "paragraph" && settings.preserveParagraphTop) {
+        try { merged.textFrame.verticalAlignment = "Top"; } catch {}
+        try { merged.textFrame.autoSizeSetting = "AutoSizeNone"; } catch {}
+      }
 
       if (settings.preserveStyles) {
         for (const span of spans) {
@@ -270,6 +279,15 @@
         try {
           merged.textFrame.textRange.paragraphFormat.horizontalAlignment = first.align;
         } catch {}
+      }
+
+      if (mode === "paragraph" && settings.preserveParagraphTop) {
+        // Re-apply the exact source paragraph envelope after text/style changes.
+        // The paragraph may extend downward later, but its top must not drift.
+        merged.left = left;
+        merged.top = top;
+        merged.width = Math.max(4, right - left);
+        merged.height = Math.max(4, bottom - top);
       }
 
       merged.load("id");
