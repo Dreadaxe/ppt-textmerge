@@ -208,6 +208,24 @@
     return Math.max(fs * 0.90, Math.min(median(compact), fs * 1.65));
   }
 
+  function effectiveLineHeight(line, pitch) {
+    const fontSize =
+      typeof line?.font?.size === "number" && Number.isFinite(line.font.size)
+        ? line.font.size
+        : 10;
+
+    // Certaines conversions PDF créent des zones de ligne beaucoup plus hautes
+    // que le texte visible. On plafonne cette hauteur pour éviter de recréer
+    // de grands rectangles vides sous un paragraphe fusionné.
+    const visualCap = Math.max(fontSize * 1.9, pitch * 1.35, 8);
+
+    if (typeof line.height === "number" && Number.isFinite(line.height) && line.height > 0) {
+      return Math.min(line.height, visualCap);
+    }
+
+    return visualCap;
+  }
+
   function styleBreak(a, b) {
     const sa = a.font.size || 10;
     const sb = b.font.size || 10;
@@ -297,13 +315,22 @@
       const left = Math.min(...sorted.map(s => s.left));
       const top = Math.min(...sorted.map(s => s.top));
       const right = Math.max(...sorted.map(s => s.right));
-      const bottom = Math.max(...sorted.map(s => s.bottom));
+      const rawBottom = Math.max(...sorted.map(s => s.bottom));
+
+      const pitch = nominalPitch(sorted);
+      const paragraphBottom =
+        mode === "paragraph"
+          ? Math.max(...sorted.map(line => line.top + effectiveLineHeight(line, pitch)))
+          : rawBottom;
+
+      const bottom = Math.max(top + 4, paragraphBottom);
+      const mergedHeight = Math.max(4, bottom - top);
 
       const merged = slide.shapes.addTextBox(text, {
         left,
         top,
         width: Math.max(4, right - left),
-        height: Math.max(4, bottom - top)
+        height: mergedHeight
       });
 
       merged.name = `PPT TextMerge ${mode}`;
@@ -354,7 +381,7 @@
         merged.left = left;
         merged.top = top;
         merged.width = Math.max(4, right - left);
-        merged.height = Math.max(4, bottom - top);
+        merged.height = mergedHeight;
       }
 
       merged.load("id");
