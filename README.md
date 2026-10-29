@@ -2,56 +2,24 @@
 
 **PPT TextMerge** is a lightweight PowerPoint add-in for repairing fragmented text boxes, especially after **PDF → PowerPoint** conversion.
 
-Repository: `Dreadaxe/ppt-textmerge`.
+## v0.6 — stable merge engine
 
-## Core workflow
+The v0.6 engine deliberately avoids recreating text boxes.
 
-Select text boxes on a slide and use the PowerPoint ribbon:
+Instead, it keeps an existing text box as the merge target, replaces only its text, adjusts its geometry, and deletes the absorbed boxes. It no longer copies fragile PDF-derived margins, horizontal alignment, font/color runs, or other text-frame properties.
 
-- **Fusion paragraphes** — detects columns, visual lines, titles/body transitions and reconstructs logical paragraphs.
-- **Fusion 1 zone** — joins the full selection into one text box.
-- **Découper** — splits one text box into explicit paragraphs or explicit line breaks.
-- **Options** — opens the lightweight settings/diagnostic panel.
+### Ribbon commands
 
-## v0.5 highlights
+- **Fusion paragraphes** — detects logical paragraphs and merges each group into its existing topmost text box.
+- **Fusion 1 zone** — merges the whole selection into one existing target box.
+- **Fusion colonnes** — detects columns and merges each column into a separate existing text box.
+- **Options** — controls paragraph-gap detection, title/body splitting, column detection, compact/preserved spacing, and dehyphenation.
 
-### Smart same-line fragment repair
-Adjacent boxes on the same baseline can be reassembled before paragraph reconstruction. Very small horizontal gaps are treated as OCR/PDF fragmentation inside a word; larger gaps become spaces.
+### Important limitation
 
-### Column-aware paragraph reconstruction
-Text boxes are first grouped into visual lines, then columns, then paragraphs. This reduces accidental cross-column merges.
-
-### Reference-box merge
-For **Fusion 1 zone**, choose either:
-- the union of all selected boxes; or
-- the first selected box as the reference geometry.
-
-### Frame preservation
-PPT TextMerge can preserve:
-- text margins;
-- vertical anchoring;
-- word wrap;
-- auto-fit behavior;
-- dominant font, size, bold, italic and color.
-
-### Split text
-One multiline text box can be split on explicit paragraph breaks or explicit line breaks.
-
-### Selection diagnostic
-The Options pane can report:
-`text boxes → visual lines → detected paragraphs · columns · same-line fragments`
-without modifying the slide.
-
-### Keyboard shortcuts
-On supported PowerPoint versions:
-- `Ctrl+Alt+M` — smart paragraph merge
-- `Ctrl+Alt+J` — merge into one box
-- `Ctrl+Alt+Shift+P` — split into paragraphs
-- `Ctrl+Alt+Shift+L` — split into lines
+Office.js does not currently expose PowerPoint's native text-column count. Therefore **Fusion colonnes** creates one stable text box per detected column; it does not create a single native multi-column PowerPoint text frame.
 
 ## Production hosting
-
-The add-in is static and hosted at:
 
 https://dreadaxe.github.io/ppt-textmerge
 
