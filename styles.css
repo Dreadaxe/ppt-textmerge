@@ -18,3 +18,62 @@ select { width:100%; border:1px solid #bbb; border-radius:5px; padding:7px; back
 .status { position:sticky; bottom:0; border-radius:6px; padding:8px 10px; background:#252525; color:#fff; font-size:11px; }
 .status.error { background:#8b1e1e; }
 .status.success { background:#246b35; }
+
+
+.labelWithHelp {
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+}
+
+.help {
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  border:1px solid #9a9a9a;
+  color:#555;
+  font-size:11px;
+  line-height:1;
+  cursor:help;
+  user-select:none;
+  flex:0 0 auto;
+}
+
+.help:hover,
+.help:focus {
+  outline:none;
+  border-color:#555;
+  color:#222;
+}
+
+.help::after {
+  content:attr(data-tooltip);
+  position:absolute;
+  z-index:1000;
+  left:50%;
+  bottom:calc(100% + 8px);
+  transform:translateX(-50%);
+  width:240px;
+  max-width:70vw;
+  padding:8px 10px;
+  border-radius:7px;
+  background:#222;
+  color:#fff;
+  font-size:11px;
+  line-height:1.35;
+  font-weight:400;
+  box-shadow:0 4px 14px rgba(0,0,0,.22);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .12s ease;
+  white-space:normal;
+}
+
+.help:hover::after,
+.help:focus::after {
+  opacity:1;
+}
