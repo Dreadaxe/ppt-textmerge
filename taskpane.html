@@ -78,23 +78,21 @@
           <span class="help" tabindex="0" data-tooltip="Recolle automatiquement un mot coupé par un tiret en fin de ligne, par exemple « para- » + « graphe » devient « paragraphe ».">ⓘ</span>
         </span>
       </label>
-      <label class="check">
-        <input id="preserveStyles" type="checkbox" checked>
-        <span class="labelWithHelp">
-          Conserver le style dominant de chaque ligne
-          <span class="help" tabindex="0" data-tooltip="Conserve autant que possible la police, la taille, le gras, l’italique et la couleur des lignes d’origine après fusion.">ⓘ</span>
-        </span>
-      </label>
+    </section>
+
+    <section class="card info">
+      <strong>Mode stable v0.6</strong>
+      <p>La fusion conserve une zone existante comme cible et ne recopie plus les marges, alignements ou styles fragiles des zones PDF. « Fusion colonnes » crée une zone distincte par colonne détectée.</p>
     </section>
 
     <section class="card info">
       <strong>Utilisation</strong>
-      <p>Sélectionne les zones de texte dans PowerPoint, puis utilise directement les boutons PPT TextMerge du ruban. Ce panneau sert uniquement aux réglages.</p>
+      <p>Sélectionne les zones de texte dans PowerPoint, puis utilise Fusion paragraphes, Fusion 1 zone ou Fusion colonnes dans le ruban.</p>
     </section>
 
     <div id="status" class="status">Prêt.</div>
   </main>
   <div id="helpTooltip" class="floatingTooltip" role="tooltip" hidden></div>
-  <script src="app.js?v=1055"></script>
+  <script src="app.js?v=1060"></script>
 </body>
 </html>
