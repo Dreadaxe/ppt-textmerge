@@ -487,6 +487,62 @@
     }
   }
 
+  function bindHelpTooltips() {
+    const tooltip = document.getElementById("helpTooltip");
+    if (!tooltip) return;
+
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+    const show = target => {
+      const text = target?.dataset?.tooltip;
+      if (!text) return;
+
+      tooltip.textContent = text;
+      tooltip.hidden = false;
+      tooltip.style.visibility = "hidden";
+      tooltip.style.left = "12px";
+      tooltip.style.top = "12px";
+
+      const anchor = target.getBoundingClientRect();
+      const tip = tooltip.getBoundingClientRect();
+      const margin = 8;
+      const viewportW = document.documentElement.clientWidth;
+      const viewportH = document.documentElement.clientHeight;
+
+      let left = anchor.left + (anchor.width / 2) - (tip.width / 2);
+      left = clamp(left, 8, Math.max(8, viewportW - tip.width - 8));
+
+      let top = anchor.top - tip.height - margin;
+      if (top < 8) {
+        top = anchor.bottom + margin;
+      }
+      if (top + tip.height > viewportH - 8) {
+        top = clamp(anchor.top + (anchor.height / 2) - (tip.height / 2), 8, Math.max(8, viewportH - tip.height - 8));
+      }
+
+      tooltip.style.left = `${Math.round(left)}px`;
+      tooltip.style.top = `${Math.round(top)}px`;
+      tooltip.style.visibility = "visible";
+    };
+
+    const hide = () => {
+      tooltip.hidden = true;
+    };
+
+    document.querySelectorAll(".help").forEach(target => {
+      target.addEventListener("mouseenter", () => show(target));
+      target.addEventListener("mouseleave", hide);
+      target.addEventListener("focus", () => show(target));
+      target.addEventListener("blur", hide);
+      target.addEventListener("keydown", event => {
+        if (event.key === "Escape") hide();
+      });
+    });
+
+    window.addEventListener("resize", hide);
+    document.querySelector("main")?.addEventListener("scroll", hide, { passive: true });
+  }
+
   function bindSettingsUi() {
     const q = id => document.getElementById(id);
     const s = loadSettings();
@@ -548,6 +604,7 @@
     }
 
     bindSettingsUi();
+    bindHelpTooltips();
 
     const badge = document.getElementById("apiBadge");
     if (badge) {
