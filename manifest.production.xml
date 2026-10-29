@@ -5,17 +5,17 @@
            xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
            xsi:type="TaskPaneApp">
   <Id>B1CC1490-1CC9-475F-BB22-6615D7B13A52</Id>
-  <Version>1.0.4.1</Version>
-  <ProviderName>ParaMerge</ProviderName>
+  <Version>1.0.4.2</Version>
+  <ProviderName>PPT TextMerge</ProviderName>
   <DefaultLocale>fr-FR</DefaultLocale>
-  <DisplayName DefaultValue="ParaMerge for PowerPoint"/>
-  <Description DefaultValue="Fusionne les zones de texte issues de PDF en paragraphes PowerPoint éditables."/>
-  <IconUrl DefaultValue="https://dreadaxe.github.io/paramerge/assets/paragraphs-32.png"/>
-  <HighResolutionIconUrl DefaultValue="https://dreadaxe.github.io/paramerge/assets/paragraphs-80.png"/>
-  <SupportUrl DefaultValue="https://dreadaxe.github.io/paramerge/taskpane.html"/>
+  <DisplayName DefaultValue="PPT TextMerge"/>
+  <Description DefaultValue="Répare et fusionne les zones de texte PowerPoint, notamment après conversion PDF → PPTX."/>
+  <IconUrl DefaultValue="https://dreadaxe.github.io/ppt-textmerge/assets/paragraphs-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://dreadaxe.github.io/ppt-textmerge/assets/paragraphs-80.png"/>
+  <SupportUrl DefaultValue="https://github.com/Dreadaxe/ppt-textmerge"/>
 
   <AppDomains>
-    <AppDomain>https://dreadaxe.github.io/paramerge</AppDomain>
+    <AppDomain>https://dreadaxe.github.io/ppt-textmerge</AppDomain>
   </AppDomains>
 
   <Hosts>
@@ -30,7 +30,7 @@
   </Requirements>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://dreadaxe.github.io/paramerge/taskpane.html"/>
+    <SourceLocation DefaultValue="https://dreadaxe.github.io/ppt-textmerge/taskpane.html"/>
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
@@ -56,7 +56,7 @@
 
           <ExtensionPoint xsi:type="PrimaryCommandSurface">
             <OfficeTab id="TabHome">
-              <Group id="ParaMerge.Group">
+              <Group id="PPTTextMerge.Group">
                 <Label resid="Group.Label"/>
                 <Icon>
                   <bt:Image size="16" resid="Paragraphs.16"/>
@@ -64,7 +64,7 @@
                   <bt:Image size="80" resid="Paragraphs.80"/>
                 </Icon>
 
-                <Control xsi:type="Button" id="ParaMerge.MergeParagraphs">
+                <Control xsi:type="Button" id="PPTTextMerge.MergeParagraphs">
                   <Label resid="MergeParagraphs.Label"/>
                   <Supertip>
                     <Title resid="MergeParagraphs.Label"/>
@@ -80,7 +80,7 @@
                   </Action>
                 </Control>
 
-                <Control xsi:type="Button" id="ParaMerge.MergeSingle">
+                <Control xsi:type="Button" id="PPTTextMerge.MergeSingle">
                   <Label resid="MergeSingle.Label"/>
                   <Supertip>
                     <Title resid="MergeSingle.Label"/>
@@ -96,7 +96,7 @@
                   </Action>
                 </Control>
 
-                <Control xsi:type="Button" id="ParaMerge.Settings">
+                <Control xsi:type="Button" id="PPTTextMerge.Settings">
                   <Label resid="Settings.Label"/>
                   <Supertip>
                     <Title resid="Settings.Label"/>
@@ -120,23 +120,23 @@
 
     <Resources>
       <bt:Images>
-        <bt:Image id="Paragraphs.16" DefaultValue="https://dreadaxe.github.io/paramerge/assets/paragraphs-16.png"/>
-        <bt:Image id="Paragraphs.32" DefaultValue="https://dreadaxe.github.io/paramerge/assets/paragraphs-32.png"/>
-        <bt:Image id="Paragraphs.80" DefaultValue="https://dreadaxe.github.io/paramerge/assets/paragraphs-80.png"/>
-        <bt:Image id="Single.16" DefaultValue="https://dreadaxe.github.io/paramerge/assets/single-16.png"/>
-        <bt:Image id="Single.32" DefaultValue="https://dreadaxe.github.io/paramerge/assets/single-32.png"/>
-        <bt:Image id="Single.80" DefaultValue="https://dreadaxe.github.io/paramerge/assets/single-80.png"/>
-        <bt:Image id="Settings.16" DefaultValue="https://dreadaxe.github.io/paramerge/assets/settings-16.png"/>
-        <bt:Image id="Settings.32" DefaultValue="https://dreadaxe.github.io/paramerge/assets/settings-32.png"/>
-        <bt:Image id="Settings.80" DefaultValue="https://dreadaxe.github.io/paramerge/assets/settings-80.png"/>
+        <bt:Image id="Paragraphs.16" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/assets/paragraphs-16.png"/>
+        <bt:Image id="Paragraphs.32" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/assets/paragraphs-32.png"/>
+        <bt:Image id="Paragraphs.80" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/assets/paragraphs-80.png"/>
+        <bt:Image id="Single.16" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/assets/single-16.png"/>
+        <bt:Image id="Single.32" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/assets/single-32.png"/>
+        <bt:Image id="Single.80" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/assets/single-80.png"/>
+        <bt:Image id="Settings.16" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/assets/settings-16.png"/>
+        <bt:Image id="Settings.32" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/assets/settings-32.png"/>
+        <bt:Image id="Settings.80" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/assets/settings-80.png"/>
       </bt:Images>
 
       <bt:Urls>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://dreadaxe.github.io/paramerge/taskpane.html"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://dreadaxe.github.io/ppt-textmerge/taskpane.html"/>
       </bt:Urls>
 
       <bt:ShortStrings>
-        <bt:String id="Group.Label" DefaultValue="ParaMerge"/>
+        <bt:String id="Group.Label" DefaultValue="PPT TextMerge"/>
         <bt:String id="MergeParagraphs.Label" DefaultValue="Fusion paragraphes"/>
         <bt:String id="MergeSingle.Label" DefaultValue="Fusion 1 zone"/>
         <bt:String id="Settings.Label" DefaultValue="Options"/>
@@ -145,7 +145,7 @@
       <bt:LongStrings>
         <bt:String id="MergeParagraphs.Description" DefaultValue="Fusionne les lignes sélectionnées en plusieurs paragraphes en conservant leur position."/>
         <bt:String id="MergeSingle.Description" DefaultValue="Fusionne toute la sélection en une seule zone de texte."/>
-        <bt:String id="Settings.Description" DefaultValue="Ouvre les réglages ParaMerge."/>
+        <bt:String id="Settings.Description" DefaultValue="Ouvre les réglages de PPT TextMerge."/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
