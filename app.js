@@ -1,26 +1,31 @@
 (() => {
   "use strict";
 
-  const SETTINGS_KEY = "paramerge.v041.settings";
+  const SETTINGS_KEY = "ppt-textmerge.v060.settings";
+  const LEGACY_SETTINGS_KEY = "paramerge.v041.settings";
+
   const DEFAULTS = {
     paragraphGap: 1.55,
     splitOnStyle: true,
     respectColumns: true,
-    layoutMode: "preserve",
+    layoutMode: "compact",
     maxBlankLines: 8,
-    dehyphenate: true,
-    preserveStyles: true,
-    preserveParagraphTop: true
+    dehyphenate: true
   };
 
   function supports(set, version) {
-    try { return Office.context.requirements.isSetSupported(set, version); }
-    catch { return false; }
+    try {
+      return Office.context.requirements.isSetSupported(set, version);
+    } catch {
+      return false;
+    }
   }
 
   function loadSettings() {
     try {
-      const raw = localStorage.getItem(SETTINGS_KEY);
+      const raw =
+        localStorage.getItem(SETTINGS_KEY) ||
+        localStorage.getItem(LEGACY_SETTINGS_KEY);
       return { ...DEFAULTS, ...(raw ? JSON.parse(raw) : {}) };
     } catch {
       return { ...DEFAULTS };
@@ -33,113 +38,105 @@
 
   function setStatus(message, kind = "normal") {
     const el = document.getElementById("status");
-    if (el) {
-      el.textContent = message;
-      el.className = `status${kind === "normal" ? "" : " " + kind}`;
-    }
+    if (!el) return;
+
+    el.textContent = message;
+    el.className = `status${kind === "normal" ? "" : " " + kind}`;
   }
 
   async function showError(message) {
     setStatus(message, "error");
     try {
-      if (Office.addin && Office.addin.showAsTaskpane) {
+      if (Office.addin?.showAsTaskpane) {
         await Office.addin.showAsTaskpane();
       }
     } catch {}
   }
 
-  const VALID_ALIGNMENTS = new Set([
-    "Left", "Center", "Right", "Justify",
-    "JustifyLow", "Distributed", "ThaiDistributed"
-  ]);
-
-  function normalizeText(s) {
-    return String(s || "").replace(/\s+/g, " ").trim();
-  }
-
   function describeOfficeError(error, stage = "") {
     const parts = [];
     if (stage) parts.push(stage);
-    if (error && error.code) parts.push(String(error.code));
-    if (error && error.message && error.message !== error.code) parts.push(String(error.message));
-    const loc = error?.debugInfo?.errorLocation;
-    if (loc) parts.push("à " + loc);
+    if (error?.code) parts.push(String(error.code));
+    if (error?.message && error.message !== error.code) {
+      parts.push(String(error.message));
+    }
+    if (error?.debugInfo?.errorLocation) {
+      parts.push("à " + error.debugInfo.errorLocation);
+    }
     return parts.join(" — ") || String(error);
   }
 
-  function safeTextMargin(value, dimension) {
-    if (typeof value !== "number" || !Number.isFinite(value)) return null;
-    if (value < 0) return null;
-
-    // Les conversions PDF peuvent exposer des valeurs de marge aberrantes.
-    // Une marge supérieure à la moitié de la dimension du cadre n'est pas
-    // utile ici et peut être rejetée par PowerPoint lors de la réécriture.
-    const limit = Math.max(0, Math.min(72, Number.isFinite(dimension) ? dimension / 2 : 72));
-    if (value > limit) return null;
-
-    return value;
+  function normalizeText(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
   }
 
   function median(values) {
     if (!values.length) return 0;
-    const a = [...values].sort((x, y) => x - y);
-    const m = Math.floor(a.length / 2);
-    return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+    const sorted = [...values].sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2
+      ? sorted[middle]
+      : (sorted[middle - 1] + sorted[middle]) / 2;
   }
 
   function eligibleType(type) {
-    return ["TextBox", "GeometricShape", "Placeholder", "Callout"].includes(String(type));
+    return ["TextBox", "GeometricShape", "Placeholder", "Callout"].includes(
+      String(type)
+    );
   }
 
   async function hydrateShapes(context, shapes) {
-    const eligible = shapes.filter(s => eligibleType(s.type));
+    const eligible = shapes.filter(shape => eligibleType(shape.type));
 
     for (const shape of eligible) {
-      shape.textFrame.load("hasText,leftMargin,rightMargin,topMargin,bottomMargin,wordWrap");
+      shape.textFrame.load("hasText");
       shape.textFrame.textRange.load(
-        "text,font/name,font/size,font/bold,font/italic,font/color,paragraphFormat/horizontalAlignment"
+        "text,font/size,font/bold,font/italic"
       );
     }
-    await context.sync();
 
-    const out = [];
+    try {
+      await context.sync();
+    } catch (error) {
+      throw new Error(describeOfficeError(error, "Lecture du texte"));
+    }
+
+    const snapshots = [];
+
     for (const shape of eligible) {
-      const tf = shape.textFrame;
-      if (!tf.hasText) continue;
+      if (!shape.textFrame.hasText) continue;
 
-      const text = normalizeText(tf.textRange.text);
-      if (!text || text.includes("\n") || text.includes("\v")) continue;
+      const rawText = String(shape.textFrame.textRange.text || "").trim();
+      const text = normalizeText(rawText);
+      if (!text) continue;
 
-      const font = tf.textRange.font;
-      out.push({
+      const font = shape.textFrame.textRange.font;
+      snapshots.push({
         id: shape.id,
         text,
+        rawText,
+        lineCount: Math.max(
+          1,
+          rawText.split(/\r\n|\r|\n|\v/).filter(Boolean).length
+        ),
         left: shape.left,
         top: shape.top,
         width: shape.width,
         height: shape.height,
         right: shape.left + shape.width,
         bottom: shape.top + shape.height,
-        cx: shape.left + shape.width / 2,
         font: {
-          name: font.name || null,
-          size: font.size || null,
-          bold: font.bold == null ? null : font.bold,
-          italic: font.italic == null ? null : font.italic,
-          color: font.color || null
-        },
-        align: tf.textRange.paragraphFormat.horizontalAlignment == null
-          ? null
-          : String(tf.textRange.paragraphFormat.horizontalAlignment),
-        frame: {
-          leftMargin: safeTextMargin(tf.leftMargin, shape.width),
-          rightMargin: safeTextMargin(tf.rightMargin, shape.width),
-          topMargin: safeTextMargin(tf.topMargin, shape.height),
-          bottomMargin: safeTextMargin(tf.bottomMargin, shape.height)
+          size:
+            typeof font.size === "number" && Number.isFinite(font.size)
+              ? font.size
+              : null,
+          bold: typeof font.bold === "boolean" ? font.bold : null,
+          italic: typeof font.italic === "boolean" ? font.italic : null
         }
       });
     }
-    return out;
+
+    return snapshots;
   }
 
   async function getSelection() {
@@ -147,8 +144,6 @@
       const slides = context.presentation.getSelectedSlides();
       const shapes = context.presentation.getSelectedShapes();
 
-      // Pattern recommandé par Microsoft pour les scoped collections :
-      // charger d'abord "items", puis les propriétés de chaque objet.
       slides.load("items");
       shapes.load("items");
       const shapeCount = shapes.getCount();
@@ -162,6 +157,7 @@
       if (slides.items.length !== 1) {
         throw new Error("Sélectionne une seule diapositive.");
       }
+
       if (shapeCount.value < 1 || shapes.items.length < 1) {
         throw new Error("Sélectionne des zones de texte.");
       }
@@ -176,347 +172,452 @@
       try {
         await context.sync();
       } catch (error) {
-        throw new Error(describeOfficeError(error, "Lecture des propriétés des zones"));
+        throw new Error(
+          describeOfficeError(error, "Lecture des propriétés des zones")
+        );
       }
 
       const snapshots = await hydrateShapes(context, shapes.items);
+
       if (!snapshots.length) {
         throw new Error("Aucune zone de texte exploitable dans la sélection.");
       }
 
-      return { slideId: slide.id, shapes: snapshots };
+      return {
+        slideId: slide.id,
+        shapes: snapshots
+      };
     });
   }
 
   function nominalPitch(lines) {
     if (lines.length < 2) {
-      return Math.max(8, (lines[0]?.font.size || 10) * 1.15);
+      return Math.max(8, (lines[0]?.font?.size || 10) * 1.15);
     }
 
-    const deltas = lines
+    const ordered = [...lines].sort(
+      (a, b) => a.top - b.top || a.left - b.left
+    );
+
+    const deltas = ordered
       .slice(1)
-      .map((x, i) => x.top - lines[i].top)
-      .filter(x => x > 1)
+      .map((line, index) => line.top - ordered[index].top)
+      .filter(value => value > 1)
       .sort((a, b) => a - b);
 
+    const fontSize = median(lines.map(line => line.font.size || 10));
+
     if (!deltas.length) {
-      return Math.max(8, median(lines.map(s => s.font.size || 10)) * 1.15);
+      return Math.max(8, fontSize * 1.15);
     }
 
-    const fs = median(lines.map(s => s.font.size || 10));
-    const compact = deltas.slice(0, Math.max(1, Math.ceil(deltas.length * 0.60)));
-    return Math.max(fs * 0.90, Math.min(median(compact), fs * 1.65));
+    const compact = deltas.slice(
+      0,
+      Math.max(1, Math.ceil(deltas.length * 0.6))
+    );
+
+    return Math.max(
+      fontSize * 0.9,
+      Math.min(median(compact), fontSize * 1.65)
+    );
   }
 
   function effectiveLineHeight(line, pitch) {
-    const fontSize =
-      typeof line?.font?.size === "number" && Number.isFinite(line.font.size)
-        ? line.font.size
-        : 10;
+    const fontSize = line?.font?.size || 10;
+    const logicalLines = Math.max(1, line?.lineCount || 1);
+    const cap = Math.max(
+      fontSize * 1.8 * logicalLines,
+      pitch * 1.3 * logicalLines,
+      8
+    );
 
-    // Certaines conversions PDF créent des zones de ligne beaucoup plus hautes
-    // que le texte visible. On plafonne cette hauteur pour éviter de recréer
-    // de grands rectangles vides sous un paragraphe fusionné.
-    const visualCap = Math.max(fontSize * 1.9, pitch * 1.35, 8);
-
-    if (typeof line.height === "number" && Number.isFinite(line.height) && line.height > 0) {
-      return Math.min(line.height, visualCap);
+    if (
+      typeof line.height === "number" &&
+      Number.isFinite(line.height) &&
+      line.height > 0
+    ) {
+      return Math.min(line.height, cap);
     }
 
-    return visualCap;
+    return cap;
   }
 
   function styleBreak(a, b) {
     const sa = a.font.size || 10;
     const sb = b.font.size || 10;
-    const size = Math.abs(sa - sb) > Math.max(0.6, Math.max(sa, sb) * 0.06);
-    const bold = a.font.bold != null && b.font.bold != null && a.font.bold !== b.font.bold;
-    const italic = a.font.italic != null && b.font.italic != null && a.font.italic !== b.font.italic;
-    return size || bold || italic;
+
+    const sizeBreak =
+      Math.abs(sa - sb) > Math.max(0.6, Math.max(sa, sb) * 0.06);
+    const boldBreak =
+      a.font.bold != null &&
+      b.font.bold != null &&
+      a.font.bold !== b.font.bold;
+    const italicBreak =
+      a.font.italic != null &&
+      b.font.italic != null &&
+      a.font.italic !== b.font.italic;
+
+    return sizeBreak || boldBreak || italicBreak;
   }
 
   function compose(lines, mode, settings) {
-    const sorted = [...lines].sort((a, b) => a.top - b.top || a.left - b.left);
-    const pitch = nominalPitch(sorted);
+    const ordered = [...lines].sort(
+      (a, b) => a.top - b.top || a.left - b.left
+    );
+    const pitch = nominalPitch(ordered);
 
     let text = "";
-    const spans = [];
 
-    sorted.forEach((line, index) => {
-      let sep = "";
-
-      if (index > 0) {
-        const prev = sorted[index - 1];
-        const dehyphen =
-          settings.dehyphenate &&
-          /[A-Za-zÀ-ÖØ-öø-ÿ]-$/.test(text) &&
-          /^[a-zà-öø-ÿ]/.test(line.text);
-
-        if (dehyphen) {
-          text = text.slice(0, -1);
-          if (spans.length && spans[spans.length - 1].length > 0) {
-            spans[spans.length - 1].length -= 1;
-          }
-        } else if (mode === "paragraph") {
-          sep = " ";
-        } else {
-          const steps = Math.max(1, Math.round((line.top - prev.top) / Math.max(pitch, 1)));
-
-          if (settings.layoutMode === "preserve") {
-            sep = steps <= 1 && !styleBreak(prev, line)
-              ? " "
-              : "\n".repeat(Math.min(settings.maxBlankLines, Math.max(1, steps)));
-          } else {
-            sep = (line.top - prev.top) > pitch * 1.55 || styleBreak(prev, line)
-              ? "\n"
-              : " ";
-          }
-        }
+    ordered.forEach((line, index) => {
+      if (index === 0) {
+        text = line.text;
+        return;
       }
 
-      text += sep;
-      const start = text.length;
-      text += line.text;
-      spans.push({ start, length: line.text.length, font: line.font });
+      const previous = ordered[index - 1];
+
+      const dehyphenate =
+        settings.dehyphenate &&
+        /[A-Za-zÀ-ÖØ-öø-ÿ]-$/.test(text) &&
+        /^[a-zà-öø-ÿ]/.test(line.text);
+
+      if (dehyphenate) {
+        text = text.slice(0, -1) + line.text;
+        return;
+      }
+
+      if (mode === "paragraph") {
+        text += " " + line.text;
+        return;
+      }
+
+      if (mode === "column") {
+        const paragraphBreak =
+          line.top - previous.top > pitch * settings.paragraphGap ||
+          (settings.splitOnStyle && styleBreak(previous, line));
+
+        text += (paragraphBreak ? "\n\n" : " ") + line.text;
+        return;
+      }
+
+      const verticalSteps = Math.max(
+        1,
+        Math.round((line.top - previous.top) / Math.max(pitch, 1))
+      );
+
+      if (settings.layoutMode === "preserve") {
+        const separator =
+          verticalSteps <= 1 && !styleBreak(previous, line)
+            ? " "
+            : "\n".repeat(
+                Math.min(
+                  settings.maxBlankLines,
+                  Math.max(1, verticalSteps)
+                )
+              );
+        text += separator + line.text;
+      } else {
+        const paragraphBreak =
+          line.top - previous.top > pitch * settings.paragraphGap ||
+          styleBreak(previous, line);
+        text += (paragraphBreak ? "\n" : " ") + line.text;
+      }
     });
 
-    return { text, spans, sorted };
+    return {
+      text,
+      ordered,
+      pitch
+    };
   }
 
-  function applyFont(range, font) {
-    if (typeof font.name === "string" && font.name && font.name !== "Mixed") {
-      range.font.name = font.name;
-    }
-    if (typeof font.size === "number" && Number.isFinite(font.size) && font.size > 0) {
-      range.font.size = font.size;
-    }
-    if (typeof font.bold === "boolean") range.font.bold = font.bold;
-    if (typeof font.italic === "boolean") range.font.italic = font.italic;
-    if (typeof font.color === "string" && font.color && font.color !== "Mixed") {
-      range.font.color = font.color;
-    }
+  function groupEnvelope(lines, pitch) {
+    const left = Math.min(...lines.map(line => line.left));
+    const top = Math.min(...lines.map(line => line.top));
+    const right = Math.max(...lines.map(line => line.right));
+    const visualBottom = Math.max(
+      ...lines.map(
+        line => line.top + effectiveLineHeight(line, pitch)
+      )
+    );
+
+    return {
+      left,
+      top,
+      width: Math.max(4, right - left),
+      height: Math.max(4, visualBottom - top)
+    };
   }
 
-  async function mergeGroup(slideId, ids, mode, selectResult = false) {
+  async function mergeGroupStable(
+    slideId,
+    ids,
+    mode,
+    selectResult = false
+  ) {
     const settings = loadSettings();
 
     return PowerPoint.run(async context => {
       const slide = context.presentation.slides.getItem(slideId);
       const source = ids.map(id => slide.shapes.getItem(id));
 
-      source.forEach(s => s.load("id,type,left,top,width,height"));
-      await context.sync();
+      for (const shape of source) {
+        shape.load("id,type,left,top,width,height");
+      }
+
+      try {
+        await context.sync();
+      } catch (error) {
+        throw new Error(
+          describeOfficeError(error, "Lecture du groupe à fusionner")
+        );
+      }
 
       const lines = await hydrateShapes(context, source);
-      if (!lines.length) throw new Error("Le groupe ne contient plus de texte exploitable.");
 
-      const { text, spans, sorted } = compose(lines, mode, settings);
-
-      const left = Math.min(...sorted.map(s => s.left));
-      const top = Math.min(...sorted.map(s => s.top));
-      const right = Math.max(...sorted.map(s => s.right));
-      const rawBottom = Math.max(...sorted.map(s => s.bottom));
-
-      const pitch = nominalPitch(sorted);
-      const paragraphBottom =
-        mode === "paragraph"
-          ? Math.max(...sorted.map(line => line.top + effectiveLineHeight(line, pitch)))
-          : rawBottom;
-
-      const bottom = Math.max(top + 4, paragraphBottom);
-      const mergedHeight = Math.max(4, bottom - top);
-
-      const merged = slide.shapes.addTextBox(text, {
-        left,
-        top,
-        width: Math.max(4, right - left),
-        height: mergedHeight
-      });
-
-      merged.name = `PPT TextMerge ${mode}`;
-      merged.fill.clear();
-
-      const first = sorted[0];
-      if (first.frame.leftMargin != null) merged.textFrame.leftMargin = first.frame.leftMargin;
-      if (first.frame.rightMargin != null) merged.textFrame.rightMargin = first.frame.rightMargin;
-      if (first.frame.topMargin != null) merged.textFrame.topMargin = first.frame.topMargin;
-
-      // La marge basse est la propriété qui provoque le plus souvent
-      // InvalidArgument sur les zones issues d'un PDF. Pour un paragraphe,
-      // elle n'est pas nécessaire pour conserver la position visuelle :
-      // on privilégie donc la stabilité et on ne la recopie que si elle est sûre.
-      if (mode !== "paragraph" && first.frame.bottomMargin != null) {
-        merged.textFrame.bottomMargin = first.frame.bottomMargin;
+      if (!lines.length) {
+        throw new Error("Le groupe ne contient plus de texte exploitable.");
       }
 
-      merged.textFrame.wordWrap = true;
+      const { text, ordered, pitch } = compose(lines, mode, settings);
+      const targetSnapshot = ordered[0];
+      const target = slide.shapes.getItem(targetSnapshot.id);
+      const envelope = groupEnvelope(ordered, pitch);
 
-      // PDF-converted line boxes are often vertically centered or auto-sized.
-      // Reusing that behavior in a taller paragraph box can move the paragraph.
-      // For paragraph fusion, keep the original top coordinate as an invariant.
-      if (mode === "paragraph" && settings.preserveParagraphTop) {
-        try { merged.textFrame.verticalAlignment = "Top"; } catch {}
-        try { merged.textFrame.autoSizeSetting = "AutoSizeNone"; } catch {}
+      // Principe v0.6 : on conserve la zone existante la plus haute.
+      // Aucun style, marge ou alignement horizontal n'est recopié.
+      target.textFrame.textRange.text = text;
+      target.left = envelope.left;
+      target.top = envelope.top;
+      target.width = envelope.width;
+      target.height = envelope.height;
+
+      // Ces trois propriétés sont nécessaires pour conserver une géométrie
+      // prévisible, sans recopier les réglages fragiles des zones PDF.
+      target.textFrame.wordWrap = true;
+      target.textFrame.autoSizeSetting = "AutoSizeNone";
+      target.textFrame.verticalAlignment = "Top";
+
+      try {
+        await context.sync();
+      } catch (error) {
+        throw new Error(
+          describeOfficeError(error, "Mise à jour de la zone cible")
+        );
       }
 
-      if (settings.preserveStyles) {
-        for (const span of spans) {
-          if (span.length <= 0) continue;
-          applyFont(
-            merged.textFrame.textRange.getSubstring(span.start, span.length),
-            span.font
-          );
+      for (const shape of source) {
+        if (shape.id !== targetSnapshot.id) {
+          shape.delete();
         }
-      } else {
-        applyFont(merged.textFrame.textRange, first.font);
       }
 
-      if (first.align && VALID_ALIGNMENTS.has(first.align)) {
-        merged.textFrame.textRange.paragraphFormat.horizontalAlignment = first.align;
-      }
-
-      if (mode === "paragraph" && settings.preserveParagraphTop) {
-        // Re-apply the exact source paragraph envelope after text/style changes.
-        // The paragraph may extend downward later, but its top must not drift.
-        merged.left = left;
-        merged.top = top;
-        merged.width = Math.max(4, right - left);
-        merged.height = mergedHeight;
-      }
-
-      merged.load("id");
       try {
         await context.sync();
       } catch (error) {
-        throw new Error(describeOfficeError(error, "Création / mise en forme de la zone fusionnée"));
-      }
-
-      source.forEach(s => s.delete());
-      try {
-        await context.sync();
-      } catch (error) {
-        throw new Error(describeOfficeError(error, "Suppression des anciennes zones"));
+        throw new Error(
+          describeOfficeError(error, "Suppression des zones absorbées")
+        );
       }
 
       if (selectResult) {
-        slide.setSelectedShapes([merged.id]);
         try {
+          slide.setSelectedShapes([targetSnapshot.id]);
           await context.sync();
         } catch (error) {
-          // La fusion elle-même est réussie : un échec de resélection ne doit pas l'annuler.
           console.warn(describeOfficeError(error, "Resélection"));
         }
       }
 
-      return merged.id;
+      return targetSnapshot.id;
     });
   }
 
   function clusterColumns(shapes) {
     const settings = loadSettings();
-    if (!settings.respectColumns || shapes.length < 4) return [shapes];
 
-    const fs = median(shapes.map(s => s.font.size || 10));
-    const tolerance = Math.max(10, fs * 1.55);
-    const sorted = [...shapes].sort((a, b) => a.left - b.left || a.top - b.top);
+    if (!settings.respectColumns || shapes.length < 4) {
+      return [shapes];
+    }
+
+    const fontSize = median(shapes.map(shape => shape.font.size || 10));
+    const tolerance = Math.max(10, fontSize * 1.55);
+    const ordered = [...shapes].sort(
+      (a, b) => a.left - b.left || a.top - b.top
+    );
     const clusters = [];
 
-    for (const shape of sorted) {
-      let best = -1;
+    for (const shape of ordered) {
+      let bestIndex = -1;
       let bestDistance = Infinity;
 
-      for (let i = 0; i < clusters.length; i++) {
-        const anchor = median(clusters[i].map(s => s.left));
+      for (let index = 0; index < clusters.length; index++) {
+        const anchor = median(clusters[index].map(item => item.left));
         const distance = Math.abs(shape.left - anchor);
 
         if (distance <= tolerance && distance < bestDistance) {
-          best = i;
+          bestIndex = index;
           bestDistance = distance;
         }
       }
 
-      if (best >= 0) clusters[best].push(shape);
-      else clusters.push([shape]);
+      if (bestIndex >= 0) {
+        clusters[bestIndex].push(shape);
+      } else {
+        clusters.push([shape]);
+      }
     }
 
-    const meaningful = clusters.filter(c => c.length >= 2);
+    const meaningful = clusters.filter(cluster => cluster.length >= 2);
+
     return meaningful.length >= 2 ? meaningful : [shapes];
   }
 
   function splitParagraphs(lines) {
     const settings = loadSettings();
-    const sorted = [...lines].sort((a, b) => a.top - b.top || a.left - b.left);
+    const ordered = [...lines].sort(
+      (a, b) => a.top - b.top || a.left - b.left
+    );
 
-    if (sorted.length <= 1) return sorted.map(x => [x]);
+    if (ordered.length <= 1) {
+      return ordered.map(line => [line]);
+    }
 
-    const pitch = nominalPitch(sorted);
-    const groups = [[sorted[0]]];
+    const pitch = nominalPitch(ordered);
+    const groups = [[ordered[0]]];
 
-    for (let i = 1; i < sorted.length; i++) {
-      const prev = sorted[i - 1];
-      const cur = sorted[i];
+    for (let index = 1; index < ordered.length; index++) {
+      const previous = ordered[index - 1];
+      const current = ordered[index];
 
-      const gapBreak = (cur.top - prev.top) > pitch * settings.paragraphGap;
-      const style = settings.splitOnStyle && styleBreak(prev, cur);
+      const gapBreak =
+        current.top - previous.top > pitch * settings.paragraphGap;
+      const titleBreak =
+        settings.splitOnStyle && styleBreak(previous, current);
 
-      if (gapBreak || style) groups.push([cur]);
-      else groups[groups.length - 1].push(cur);
+      if (gapBreak || titleBreak) {
+        groups.push([current]);
+      } else {
+        groups[groups.length - 1].push(current);
+      }
     }
 
     return groups;
   }
 
-  async function mergeAllSelection() {
-    const data = await getSelection();
-    if (data.shapes.length < 2) throw new Error("Sélectionne au moins deux zones de texte.");
-
-    await mergeGroup(
-      data.slideId,
-      data.shapes.map(s => s.id),
-      "all",
-      true
-    );
-
-    setStatus(`${data.shapes.length} lignes fusionnées en 1 zone.`, "success");
-  }
-
-  async function mergeParagraphSelection() {
-    const data = await getSelection();
-    if (data.shapes.length < 2) throw new Error("Sélectionne au moins deux zones de texte.");
-
-    const columns = clusterColumns(data.shapes);
-    const groups = columns.flatMap(col => splitParagraphs(col));
-
-    const mergeable = groups.filter(g => g.length >= 2);
-    const untouched = groups
-      .filter(g => g.length === 1)
-      .flat()
-      .map(x => x.id);
-
-    const newIds = [];
-
-    for (const group of mergeable) {
-      const id = await mergeGroup(
-        data.slideId,
-        group.map(x => x.id),
-        "paragraph",
-        false
-      );
-      newIds.push(id);
-    }
+  async function selectResultShapes(slideId, ids) {
+    if (!ids.length) return;
 
     try {
       await PowerPoint.run(async context => {
-        const slide = context.presentation.slides.getItem(data.slideId);
-        slide.setSelectedShapes([...untouched, ...newIds]);
+        const slide = context.presentation.slides.getItem(slideId);
+        slide.setSelectedShapes(ids);
         await context.sync();
       });
     } catch (error) {
       console.warn(describeOfficeError(error, "Resélection finale"));
     }
+  }
+
+  async function mergeParagraphSelection() {
+    const data = await getSelection();
+
+    if (data.shapes.length < 2) {
+      throw new Error("Sélectionne au moins deux zones de texte.");
+    }
+
+    const columns = clusterColumns(data.shapes);
+    const groups = columns.flatMap(column => splitParagraphs(column));
+    const mergeable = groups.filter(group => group.length >= 2);
+    const untouched = groups
+      .filter(group => group.length === 1)
+      .flat()
+      .map(shape => shape.id);
+
+    if (!mergeable.length) {
+      throw new Error(
+        "Aucun groupe de lignes à fusionner n’a été détecté."
+      );
+    }
+
+    const mergedIds = [];
+
+    for (const group of mergeable) {
+      mergedIds.push(
+        await mergeGroupStable(
+          data.slideId,
+          group.map(shape => shape.id),
+          "paragraph",
+          false
+        )
+      );
+    }
+
+    await selectResultShapes(
+      data.slideId,
+      [...untouched, ...mergedIds]
+    );
 
     setStatus(
-      `${mergeable.length} paragraphe(s) fusionné(s), ${untouched.length} bloc(s) laissé(s) intact(s).`,
+      `${mergeable.length} paragraphe(s) fusionné(s) en conservant les zones existantes.`,
+      "success"
+    );
+  }
+
+  async function mergeAllSelection() {
+    const data = await getSelection();
+
+    if (data.shapes.length < 2) {
+      throw new Error("Sélectionne au moins deux zones de texte.");
+    }
+
+    await mergeGroupStable(
+      data.slideId,
+      data.shapes.map(shape => shape.id),
+      "all",
+      true
+    );
+
+    setStatus(
+      `${data.shapes.length} zones fusionnées dans la zone cible.`,
+      "success"
+    );
+  }
+
+  async function mergeColumnsSelection() {
+    const data = await getSelection();
+
+    if (data.shapes.length < 4) {
+      throw new Error(
+        "Sélectionne les lignes d’au moins deux colonnes."
+      );
+    }
+
+    const columns = clusterColumns(data.shapes);
+
+    if (columns.length < 2) {
+      throw new Error(
+        "Aucune séparation en colonnes n’a été détectée."
+      );
+    }
+
+    const resultIds = [];
+
+    for (const column of columns) {
+      resultIds.push(
+        await mergeGroupStable(
+          data.slideId,
+          column.map(shape => shape.id),
+          "column",
+          false
+        )
+      );
+    }
+
+    await selectResultShapes(data.slideId, resultIds);
+
+    setStatus(
+      `${columns.length} colonnes fusionnées en ${columns.length} zones distinctes.`,
       "success"
     );
   }
@@ -524,14 +625,16 @@
   async function runCommand(event, fn) {
     try {
       await fn();
-    } catch (e) {
+    } catch (error) {
       await showError(
-        e instanceof Error && !(e && e.code)
-          ? e.message
-          : describeOfficeError(e)
+        error instanceof Error && !error.code
+          ? error.message
+          : describeOfficeError(error)
       );
     } finally {
-      try { event.completed(); } catch {}
+      try {
+        event.completed();
+      } catch {}
     }
   }
 
@@ -539,7 +642,8 @@
     const tooltip = document.getElementById("helpTooltip");
     if (!tooltip) return;
 
-    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const clamp = (value, min, max) =>
+      Math.max(min, Math.min(max, value));
 
     const show = target => {
       const text = target?.dataset?.tooltip;
@@ -554,18 +658,29 @@
       const anchor = target.getBoundingClientRect();
       const tip = tooltip.getBoundingClientRect();
       const margin = 8;
-      const viewportW = document.documentElement.clientWidth;
-      const viewportH = document.documentElement.clientHeight;
+      const viewportWidth = document.documentElement.clientWidth;
+      const viewportHeight = document.documentElement.clientHeight;
 
-      let left = anchor.left + (anchor.width / 2) - (tip.width / 2);
-      left = clamp(left, 8, Math.max(8, viewportW - tip.width - 8));
+      let left =
+        anchor.left + anchor.width / 2 - tip.width / 2;
+      left = clamp(
+        left,
+        8,
+        Math.max(8, viewportWidth - tip.width - 8)
+      );
 
       let top = anchor.top - tip.height - margin;
+
       if (top < 8) {
         top = anchor.bottom + margin;
       }
-      if (top + tip.height > viewportH - 8) {
-        top = clamp(anchor.top + (anchor.height / 2) - (tip.height / 2), 8, Math.max(8, viewportH - tip.height - 8));
+
+      if (top + tip.height > viewportHeight - 8) {
+        top = clamp(
+          anchor.top + anchor.height / 2 - tip.height / 2,
+          8,
+          Math.max(8, viewportHeight - tip.height - 8)
+        );
       }
 
       tooltip.style.left = `${Math.round(left)}px`;
@@ -588,53 +703,62 @@
     });
 
     window.addEventListener("resize", hide);
-    document.querySelector("main")?.addEventListener("scroll", hide, { passive: true });
+    document
+      .querySelector("main")
+      ?.addEventListener("scroll", hide, { passive: true });
   }
 
   function bindSettingsUi() {
     const q = id => document.getElementById(id);
-    const s = loadSettings();
+    const settings = loadSettings();
 
     const gap = q("paragraphGap");
     if (!gap) return;
 
-    const gapVal = q("paragraphGapValue");
+    const gapValue = q("paragraphGapValue");
     const split = q("splitOnStyle");
-    const cols = q("respectColumns");
+    const columns = q("respectColumns");
     const layout = q("layoutMode");
     const blanks = q("maxBlankLines");
-    const blanksVal = q("maxBlankLinesValue");
-    const dehy = q("dehyphenate");
-    const styles = q("preserveStyles");
+    const blanksValue = q("maxBlankLinesValue");
+    const dehyphenate = q("dehyphenate");
 
-    gap.value = String(Math.round(s.paragraphGap * 100));
-    gapVal.textContent = `${gap.value} %`;
-    split.checked = !!s.splitOnStyle;
-    cols.checked = !!s.respectColumns;
-    layout.value = s.layoutMode;
-    blanks.value = String(s.maxBlankLines);
-    blanksVal.textContent = `${blanks.value} lignes`;
-    dehy.checked = !!s.dehyphenate;
-    styles.checked = !!s.preserveStyles;
+    gap.value = String(
+      Math.round(settings.paragraphGap * 100)
+    );
+    gapValue.textContent = `${gap.value} %`;
+    split.checked = !!settings.splitOnStyle;
+    columns.checked = !!settings.respectColumns;
+    layout.value = settings.layoutMode;
+    blanks.value = String(settings.maxBlankLines);
+    blanksValue.textContent = `${blanks.value} lignes`;
+    dehyphenate.checked = !!settings.dehyphenate;
 
     const update = () => {
       saveSettings({
         paragraphGap: Number(gap.value) / 100,
         splitOnStyle: split.checked,
-        respectColumns: cols.checked,
+        respectColumns: columns.checked,
         layoutMode: layout.value,
         maxBlankLines: Number(blanks.value),
-        dehyphenate: dehy.checked,
-        preserveStyles: styles.checked
+        dehyphenate: dehyphenate.checked
       });
 
-      gapVal.textContent = `${gap.value} %`;
-      blanksVal.textContent = `${blanks.value} lignes`;
+      gapValue.textContent = `${gap.value} %`;
+      blanksValue.textContent = `${blanks.value} lignes`;
       setStatus("Options enregistrées.", "success");
     };
 
-    [gap, split, cols, layout, blanks, dehy, styles]
-      .forEach(el => el.addEventListener("input", update));
+    [
+      gap,
+      split,
+      columns,
+      layout,
+      blanks,
+      dehyphenate
+    ].forEach(control =>
+      control?.addEventListener("input", update)
+    );
   }
 
   Office.onReady(info => {
@@ -647,21 +771,28 @@
         "mergeSingleCommand",
         event => runCommand(event, mergeAllSelection)
       );
-    } catch (e) {
-      console.error(e);
+      Office.actions.associate(
+        "mergeColumnsCommand",
+        event => runCommand(event, mergeColumnsSelection)
+      );
+    } catch (error) {
+      console.error(error);
     }
 
     bindSettingsUi();
     bindHelpTooltips();
 
     const badge = document.getElementById("apiBadge");
+
     if (badge) {
-      const ok =
+      const compatible =
         info.host === Office.HostType.PowerPoint &&
         supports("PowerPointApi", "1.5");
-      badge.textContent = ok ? "PowerPoint API 1.5+" : "API incompatible";
+      badge.textContent = compatible
+        ? "PowerPoint API 1.5+"
+        : "API incompatible";
     }
 
-    setStatus("Prêt.");
+    setStatus("Prêt — mode stable v0.6.");
   });
 })();
