@@ -134,17 +134,44 @@
       const slides = context.presentation.getSelectedSlides();
       const shapes = context.presentation.getSelectedShapes();
 
-      slides.load("items/id");
-      shapes.load("items/id,items/type,items/left,items/top,items/width,items/height");
-      await context.sync();
+      // Pattern recommandé par Microsoft pour les scoped collections :
+      // charger d'abord "items", puis les propriétés de chaque objet.
+      slides.load("items");
+      shapes.load("items");
+      const shapeCount = shapes.getCount();
 
-      if (slides.items.length !== 1) throw new Error("Sélectionne une seule diapositive.");
-      if (shapes.items.length < 1) throw new Error("Sélectionne des zones de texte.");
+      try {
+        await context.sync();
+      } catch (error) {
+        throw new Error(describeOfficeError(error, "Lecture de la sélection"));
+      }
+
+      if (slides.items.length !== 1) {
+        throw new Error("Sélectionne une seule diapositive.");
+      }
+      if (shapeCount.value < 1 || shapes.items.length < 1) {
+        throw new Error("Sélectionne des zones de texte.");
+      }
+
+      const slide = slides.items[0];
+      slide.load("id");
+
+      for (const shape of shapes.items) {
+        shape.load("id,type,left,top,width,height");
+      }
+
+      try {
+        await context.sync();
+      } catch (error) {
+        throw new Error(describeOfficeError(error, "Lecture des propriétés des zones"));
+      }
 
       const snapshots = await hydrateShapes(context, shapes.items);
-      if (!snapshots.length) throw new Error("Aucune zone de texte exploitable dans la sélection.");
+      if (!snapshots.length) {
+        throw new Error("Aucune zone de texte exploitable dans la sélection.");
+      }
 
-      return { slideId: slides.items[0].id, shapes: snapshots };
+      return { slideId: slide.id, shapes: snapshots };
     });
   }
 
