@@ -67,6 +67,19 @@
     return parts.join(" — ") || String(error);
   }
 
+  function safeTextMargin(value, dimension) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return null;
+    if (value < 0) return null;
+
+    // Les conversions PDF peuvent exposer des valeurs de marge aberrantes.
+    // Une marge supérieure à la moitié de la dimension du cadre n'est pas
+    // utile ici et peut être rejetée par PowerPoint lors de la réécriture.
+    const limit = Math.max(0, Math.min(72, Number.isFinite(dimension) ? dimension / 2 : 72));
+    if (value > limit) return null;
+
+    return value;
+  }
+
   function median(values) {
     if (!values.length) return 0;
     const a = [...values].sort((x, y) => x - y);
@@ -119,10 +132,10 @@
           ? null
           : String(tf.textRange.paragraphFormat.horizontalAlignment),
         frame: {
-          leftMargin: tf.leftMargin ?? null,
-          rightMargin: tf.rightMargin ?? null,
-          topMargin: tf.topMargin ?? null,
-          bottomMargin: tf.bottomMargin ?? null
+          leftMargin: safeTextMargin(tf.leftMargin, shape.width),
+          rightMargin: safeTextMargin(tf.rightMargin, shape.width),
+          topMargin: safeTextMargin(tf.topMargin, shape.height),
+          bottomMargin: safeTextMargin(tf.bottomMargin, shape.height)
         }
       });
     }
@@ -300,7 +313,15 @@
       if (first.frame.leftMargin != null) merged.textFrame.leftMargin = first.frame.leftMargin;
       if (first.frame.rightMargin != null) merged.textFrame.rightMargin = first.frame.rightMargin;
       if (first.frame.topMargin != null) merged.textFrame.topMargin = first.frame.topMargin;
-      if (first.frame.bottomMargin != null) merged.textFrame.bottomMargin = first.frame.bottomMargin;
+
+      // La marge basse est la propriété qui provoque le plus souvent
+      // InvalidArgument sur les zones issues d'un PDF. Pour un paragraphe,
+      // elle n'est pas nécessaire pour conserver la position visuelle :
+      // on privilégie donc la stabilité et on ne la recopie que si elle est sûre.
+      if (mode !== "paragraph" && first.frame.bottomMargin != null) {
+        merged.textFrame.bottomMargin = first.frame.bottomMargin;
+      }
+
       merged.textFrame.wordWrap = true;
 
       // PDF-converted line boxes are often vertically centered or auto-sized.
